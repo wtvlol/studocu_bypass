@@ -1,0 +1,7 @@
+{
+  "description": "ST2334 papers: numbered MULTIPLE/FILL/TRUE questions, answers start with SOLUTION.",
+  "practice": {
+    "marker": "SOLUTION",
+    "question_pattern": "^(\\d+)\\.\\s*(?:MULTIPLE|FILL|TRUE)"
+  }
+}

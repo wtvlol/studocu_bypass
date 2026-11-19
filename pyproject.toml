@@ -1,0 +1,15 @@
+[project]
+name = "preview-pdf"
+version = "0.2.0"
+description = "Rebuild a readable document preview as a PDF and make a questions-only practice copy"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["archive"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

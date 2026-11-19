@@ -1,0 +1,6 @@
+{
+  "description": "Generic paper: '1.' / 'Q1' style headings, answers start with Solution/Answer/Explanation.",
+  "practice": {
+    "marker_regex": "^(?:Solutions?|Answers?|Explanation)\\b"
+  }
+}

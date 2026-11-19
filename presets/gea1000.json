@@ -1,0 +1,12 @@
+{
+  "description": "GEA1000 sample paper: Q1..Qn headings, answers start with Explanation/Answer in red, correct options highlighted yellow. Run make_gea_fonts.py first.",
+  "extract": {
+    "font_map": "gea-font-map.json",
+    "clear_yellow_highlights": true
+  },
+  "practice": {
+    "marker_regex": "^(?:Explanation|Answer)\\b",
+    "question_pattern": "^Q\\s*(\\d+)\\b",
+    "forbid_colors": ["ff0000"]
+  }
+}

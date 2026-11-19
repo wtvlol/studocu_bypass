@@ -1,8 +1,11 @@
 work/
 output/
 node_modules/
+.venv/
 __pycache__/
 *.pyc
-preview-export.json
+.pytest_cache/
+.ruff_cache/
+preview-export*.json
 gea-font-map.json
 .DS_Store
