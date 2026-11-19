@@ -1,18 +1,66 @@
-/* Paste into the browser console on a document page you can read.
+/* Paste into the browser console on a Studocu document preview.
  *
  * It scrolls through the preview so each page loads the way it would for a
- * reader, then saves the readable pages to preview-export.json.
+ * reader, reveals client-side blurred content, then saves preview-export.json.
  *
- * It never removes access gates. A page that is blurred, hidden or not loaded
- * is NOT exported. It is listed under `skippedPages`, and extract_preview.py
- * refuses to build an incomplete PDF unless you pass --allow-partial.
+ * This only works on content the site supplies to the browser. Missing pages
+ * are listed under `skippedPages`; the PDF build still rejects partial exports
+ * unless you pass --allow-partial. Set REVEAL_PREVIEW to false for readable-only
+ * capture without changing the page's presentation.
  */
 (async () => {
+  const REVEAL_PREVIEW = true;
   const PAGE_TIMEOUT_MS = 8000;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const frames = [...document.querySelectorAll('#page-container .pf')];
   if (!frames.length) throw new Error('No document preview pages (#page-container .pf) found.');
+
+  if (REVEAL_PREVIEW) {
+    // Keep this rule in the document so lazy-loaded content is also unblurred.
+    let style = document.getElementById('preview-unblur-style');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'preview-unblur-style';
+      document.head.append(style);
+    }
+    style.textContent = `
+      #page-container .pf, #page-container .pf * {
+        filter: none !important;
+        -webkit-filter: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      #page-container .pc { display: block !important; }
+    `;
+  }
+
+  const reveal = (frame) => {
+    if (!REVEAL_PREVIEW) return;
+    const content = frame.querySelector('.pc');
+    // Reveal wrappers too: a filter on an ancestor blurs the whole preview.
+    for (let el = content || frame; el; el = el.parentElement) {
+      const s = getComputedStyle(el);
+      if (s.filter.includes('blur')) el.style.setProperty('filter', 'none', 'important');
+      if (s.display === 'none') el.style.setProperty('display', 'block', 'important');
+      if (s.visibility !== 'visible') el.style.setProperty('visibility', 'visible', 'important');
+      if (Number(s.opacity) === 0) el.style.setProperty('opacity', '1', 'important');
+    }
+    if (!content) return;
+    // Suppress sibling covers without deleting any document content or layout.
+    for (const sibling of content.parentElement.children) {
+      if (sibling !== content && !['STYLE', 'LINK'].includes(sibling.tagName)) {
+        sibling.style.setProperty('display', 'none', 'important');
+      }
+    }
+    // Persist overrides inside the saved HTML as well as the live page. Avoid
+    // touching transforms, text colours or positioning used by PDF text layers.
+    for (const el of [content, ...content.querySelectorAll('*')]) {
+      el.style.setProperty('filter', 'none', 'important');
+      el.style.setProperty('backdrop-filter', 'none', 'important');
+    }
+    content.style.setProperty('display', 'block', 'important');
+  };
 
   // Report the reason a page is not readable, or null if it is readable.
   const unreadableReason = (frame) => {
@@ -28,9 +76,11 @@
 
   // Scroll each page into view and give it time to load, as a reader would.
   for (const [i, frame] of frames.entries()) {
+    reveal(frame);
     frame.scrollIntoView({block: 'center'});
     const started = Date.now();
     while (!frame.querySelector('.pc') && Date.now() - started < PAGE_TIMEOUT_MS) await sleep(150);
+    reveal(frame);
     console.log(`Page ${i + 1}/${frames.length}: ${unreadableReason(frame) || 'ok'}`);
   }
   window.scrollTo(0, 0);
@@ -43,6 +93,7 @@
   const pages = [];
   const skippedPages = [];
   frames.forEach((frame, i) => {
+    reveal(frame);
     const reason = unreadableReason(frame);
     if (reason) skippedPages.push({number: i + 1, reason});
     else pages.push({number: i + 1, className: frame.className, html: frame.querySelector('.pc').outerHTML});
@@ -54,6 +105,7 @@
     pageUrl: location.href,
     capturedAt: new Date().toISOString(),
     totalPages: frames.length,
+    revealedPreview: REVEAL_PREVIEW,
     stylesheets,
     skippedPages,
     pages,

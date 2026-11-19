@@ -1,10 +1,10 @@
-"""Rebuild a readable document preview as a PDF.
+"""Rebuild a captured document preview as a PDF.
 
 Input is the preview-export.json written by capture_preview.js. This script
-downloads only the stylesheet, fonts and images that those readable pages
+downloads only the stylesheet, fonts and images that those captured pages
 reference, rebuilds the pages as local HTML, and prints them to PDF with
-headless Chrome. It does not read cookies, sign in, remove blur, or fetch pages
-that were not readable in the browser.
+headless Chrome. Client-side blur removal is handled by capture_preview.js;
+this script does not read cookies, sign in, or fetch missing pages.
 """
 
 from __future__ import annotations

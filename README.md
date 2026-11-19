@@ -1,25 +1,32 @@
 # preview-pdf
 
-Turn a document preview you can already read in your browser into a clean,
-printable PDF. Optionally, also make a **questions-only practice copy** with the
+Reveal client-side blurred Studocu preview content and turn the loaded pages
+into a clean, printable PDF. Optionally, also make a **questions-only practice copy** with the
 worked solutions removed, for revision.
 
 ```
-browser (readable preview) ──capture_preview.js──▶ preview-export.json
+browser (loaded preview) ──capture_preview.js──▶ preview-export.json
         ──run.py──▶ output/<name>/<name>.pdf
                     output/<name>/<name>_Questions_Only.pdf   (optional)
 ```
 
 ## What it does and doesn't do
 
-It rebuilds the pages your browser has **already loaded and can show you**. It
+The console snippet removes CSS blur from the loaded preview and its wrappers,
+reveals hidden page containers, and hides covers next to the page content. The
+revealed pages stay visible in your browser and are included in the export. It
 uses the document's own stylesheet, fonts and images, so text stays selectable
 and formulas stay sharp.
 
-It does **not** sign in, read cookies, download the site's original file, guess
-hidden endpoints, or remove blur and paywalls. A page that is blurred, hidden or
-not loaded is left out of the export and reported. By default the build stops,
-so you never mistake a partial paper for a complete one.
+This works when the underlying content is supplied to the browser and obscured
+with CSS. It cannot reconstruct blurred image pixels or recover content the
+server withholds. It does not sign in, read cookies, download the site's original
+file, or guess hidden endpoints. Missing or still unreadable pages are reported;
+by default the PDF build stops if any page was skipped.
+
+For the previous readable-only behaviour, set `REVEAL_PREVIEW = false` near the
+top of `capture_preview.js` before pasting it. Reload the document to undo live
+presentation changes from an earlier run.
 
 ## Setup
 
@@ -33,9 +40,9 @@ npm install
 
 ## Usage
 
-1. Open the document in your browser and make sure you can read it.
+1. Open the Studocu document preview in your browser.
 2. Open DevTools → Console, then paste in the contents of [`capture_preview.js`](capture_preview.js).
-   It scrolls through every page so each one loads, then downloads
+   It reveals the loaded preview, scrolls through every page, then downloads
    `preview-export.json`. It prints a line for each page and warns about any page
    it skipped.
 3. Move the JSON into this folder and run:
@@ -127,18 +134,21 @@ pip install -r requirements-dev.txt
 
 ```bash
 ruff check . && pytest
+npm test
 ```
 
 The tests cover page ranges, capture loading (including refusing skipped pages),
 page-size rules, font maps, highlight clearing, answer-region detection, and a
 full redaction run on a generated PDF. When Node and Chrome are present, they
 also do a real Chrome render with mixed page sizes.
+The browser tests exercise blur removal, lazy loading, missing-page reporting,
+readable-only mode and preservation of the exported content's layout.
 
 ## Layout
 
 | Path | |
 |---|---|
-| `capture_preview.js` | Browser console snippet that exports the readable pages |
+| `capture_preview.js` | Browser console snippet that reveals and exports loaded preview pages |
 | `extract_preview.py` | Downloads the assets and rebuilds the pages as HTML, then PDF |
 | `render_preview.cjs` | Prints local HTML to PDF with headless Chrome (fails if any image is missing) |
 | `remove_solutions.py` | Detects and redacts answer regions, then verifies the result |
