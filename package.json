@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "Local renderer for saved readable document previews",
+  "dependencies": {"playwright-core": "^1.56.0"}
+}
