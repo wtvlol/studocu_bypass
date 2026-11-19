@@ -100,7 +100,7 @@ async function capturePreview(options = {}) {
   }
   window.scrollTo(0, 0);
 
-  const stylesheets = [...document.querySelectorAll('link[rel="stylesheet"]')]
+  const stylesheets = [...document.querySelectorAll('link[rel~="stylesheet"]')]
     .map((e) => e.href)
     .filter((u) => u.includes('doc-assets.') && u.includes('/html/'));
   if (!stylesheets.length) throw new Error('Document stylesheet was not found.');

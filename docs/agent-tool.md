@@ -7,9 +7,16 @@ They cannot recover server-withheld pages or reverse blur baked into an image.
 
 ## Install
 
-Run `npm ci` in this repository and install Chrome or Chromium. Set `CHROME_PATH`
-if the executable is not in a standard location. Python is only needed for the
-existing PDF conversion pipeline.
+Use Node.js 22+, run `npm ci` in this repository, and install Firefox. The tool
+uses Mozilla geckodriver through Selenium; Selenium Manager finds or downloads
+the driver on first use. To use an already installed driver, set
+`GECKODRIVER_PATH` or pass `--geckodriver PATH`. Set `FIREFOX_PATH` if Firefox is
+not in a standard location. Selenium's `SE_CACHE_PATH` and `SE_TIMEOUT`
+environment variables can control the driver's cache directory and download
+timeout.
+
+Install Chrome/Chromium and Python for the existing PDF conversion pipeline.
+Chrome is also an optional capture backend (`--browser chrome`, `CHROME_PATH`).
 
 ## CLI
 
@@ -19,10 +26,11 @@ node /absolute/path/studocu_bypass/studocu-agent.cjs capture \
   --output-dir ./output/agent
 ```
 
-The command prints one JSON object to stdout. It starts a fresh browser context,
-captures the document, saves artifacts and closes Chrome. It does not use the
+The command prints one JSON object to stdout. It starts isolated Firefox by
+default, captures the document, saves artifacts and closes the browser. It does not use the
 user's browser profile or existing cookies. `--headed` shows the isolated browser
-during the operation; it closes when the capture finishes. Use `--chrome PATH`,
+during the operation; it closes when the capture finishes. Use `--browser firefox|chrome`,
+`--firefox PATH`, `--geckodriver PATH`, `--chrome PATH`,
 `--timeout-ms 120000`, `--page-timeout-ms 8000` or `--readable-only` as needed.
 Run `node studocu-agent.cjs --help` for all CLI options.
 
@@ -33,7 +41,7 @@ Each call uses a separate `capture-*` folder, containing:
 - `document.txt`: full extracted text, when capture succeeds.
 - `preview.png`: viewport screenshot, when Chrome can produce one, including on failures.
 
-Result fields include `status`, `url`, `title`, `totalPages`, `capturedPages`,
+Result fields include `status`, `browser`, `url`, `title`, `totalPages`, `capturedPages`,
 `skippedPages`, `text`, `textTruncated`, `coverage` and absolute `artifacts` paths.
 Unavailable results may instead contain an `error` with `code` and `message`.
 Inline text defaults to 20,000 characters; `document.txt` contains the full text.
@@ -81,7 +89,7 @@ can use:
 }
 ```
 
-Set `CHROME_PATH` in `env` too if Chrome is not auto-detected. Use the direct
+Set `FIREFOX_PATH` and `GECKODRIVER_PATH` in `env` too if needed. Use the direct
 `node` command for MCP so package-manager notices cannot pollute protocol stdout.
 
 ### `studocu_capture`
@@ -89,6 +97,8 @@ Set `CHROME_PATH` in `env` too if Chrome is not auto-detected. Use the direct
 ```json
 {
   "url": "https://www.studocu.com/sg/document/university/course/document/12345",
+  "browser": "firefox",
+  "headless": true,
   "reveal": true,
   "timeoutMs": 120000,
   "pageTimeoutMs": 8000,
@@ -99,8 +109,8 @@ Set `CHROME_PATH` in `env` too if Chrome is not auto-detected. Use the direct
 Only `url` is required. Returns both a JSON text block and `structuredContent`
 using the same result shape as the CLI. `isError` is true for partial and
 unavailable results, while any successfully saved artifacts remain accessible.
-The capture timeout covers navigation and page capture; browser launch may take
-up to an additional 30 seconds, and diagnostic screenshot/cleanup adds time.
+The capture timeout covers navigation and page capture. Browser launch, initial
+driver discovery/download and diagnostic screenshot/cleanup add time.
 Set the MCP client's request timeout accordingly.
 
 ### `studocu_get_capture_script`
@@ -154,7 +164,28 @@ failure reporting, the console snippet and MCP client/server communication
 (including a real stdio subprocess).
 
 On 19 November 2026, the supplied GEA1000 document (ID `70292212`) returned HTTP
-403 and an **Access Blocked** page in isolated Chrome, including a visible-browser
-retry. This did not reach the viewer and does not demonstrate a successful live
-unblur. The tool reports the block and saves diagnostics. It does not retry with
-stealth settings, solve challenges, or treat the blocked page as a document.
+403 and an **Access Blocked** page in isolated Chrome and direct HTTP requests.
+This was a server response, rather than a local sandbox network-denial error.
+
+Isolated Firefox subsequently reached the same live document. Before capture,
+the second page was under a `display:none` wrapper. After capture, both pages
+were recovered, with no skipped frames and roughly 15,000 characters of text.
+The actual CLI also succeeded in **headless Firefox**, with a fresh profile and
+without copying existing cookies or changing automation-detection settings.
+The live run exposed and fixed stylesheet discovery: Studocu used
+`rel="preload stylesheet"`, which requires token matching (`[rel~="stylesheet"]`).
+
+The captured pages were rebuilt as a two-page PDF and checked for selectable
+text and page images. The document's original font URLs returned 404, so the
+local verification PDF used installed Times/Cambria replacement fonts. Those
+fonts and the recovered document are local ignored artifacts, not repository
+content. Capture itself does not require the PDF step or replacement fonts.
+
+These results establish a successful run for that document and environment;
+other documents or later server responses may differ. The tool reports access
+blocks explicitly and does not solve human-verification challenges.
+
+The Firefox regression test uses a local iframe fixture with a hidden page and
+a multi-token stylesheet link. Enable it by setting `GECKODRIVER_PATH` when
+running `npm test`; the rest of the browser/MCP tests still use routed Chrome
+fixtures. Live checks are manual and are not repeatedly requested by the test suite.

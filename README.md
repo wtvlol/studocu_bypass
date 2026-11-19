@@ -30,7 +30,8 @@ presentation changes from an earlier run.
 
 ## Setup
 
-Requires Python 3.10+, Node.js 18+, and Google Chrome (or Chromium).
+Requires Python 3.10+ and Node.js 22+. Install Firefox for automated live capture
+(the default browser), and Google Chrome or Chromium for PDF rendering.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -51,6 +52,10 @@ removes `sid` from the document URL before navigation and from saved capture
 URLs. Missing pages and access blocks produce explicit partial/unavailable
 results. See [the agent tool guide](docs/agent-tool.md) for MCP configuration,
 the existing-tab capture tool, output schemas and live-test limitations.
+
+Firefox captured both pages of the supplied GEA1000 document in a verified live
+run. Chrome and direct HTTP requests returned a Studocu access block. Use
+`--browser chrome` to select Chrome explicitly; no automatic retries are made.
 
 ### Browser console
 
@@ -151,6 +156,10 @@ ruff check . && pytest
 npm test
 ```
 
+Set `GECKODRIVER_PATH` to an installed Mozilla geckodriver executable to include
+the Firefox integration test; otherwise that one test is skipped. The MCP/CLI
+can also resolve the driver using Selenium Manager during normal operation.
+
 The tests cover page ranges, capture loading (including refusing skipped pages),
 page-size rules, font maps, highlight clearing, answer-region detection, and a
 full redaction run on a generated PDF. When Node and Chrome are present, they
@@ -166,7 +175,8 @@ communication over stdio.
 |---|---|
 | `capture_preview.js` | Browser console snippet that reveals and exports loaded preview pages |
 | `studocu-agent.cjs` | Agent CLI and stdio MCP entry point |
-| `agent_tool.cjs` | Isolated Chrome capture, URL cleanup and structured artifact output |
+| `agent_tool.cjs` | Browser selection, URL cleanup and structured artifact output |
+| `firefox_capture.cjs` | Firefox live capture and iframe discovery through WebDriver |
 | `mcp_server.cjs` | MCP tools for URL capture and scripts for an existing tab |
 | `docs/agent-tool.md` | Agent setup, result contract and live-test evidence |
 | `extract_preview.py` | Downloads the assets and rebuilds the pages as HTML, then PDF |

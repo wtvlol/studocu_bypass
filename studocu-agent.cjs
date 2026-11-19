@@ -11,6 +11,9 @@ Options for capture:
   --timeout-ms N          Overall capture timeout (default: 120000)
   --page-timeout-ms N     Wait per missing page (default: 8000)
   --chrome PATH          Chrome executable (or CHROME_PATH)
+  --browser NAME         firefox (default) or chrome
+  --firefox PATH         Firefox executable (or FIREFOX_PATH)
+  --geckodriver PATH     Mozilla driver (or GECKODRIVER_PATH); auto-resolved if omitted
   --readable-only        Capture without changing blur or visibility
   --headed               Show the isolated browser window
 
@@ -31,14 +34,16 @@ async function main() {
     options: {
       help: {type: 'boolean', short: 'h'},
       'output-dir': {type: 'string'}, 'timeout-ms': {type: 'string'},
-      'page-timeout-ms': {type: 'string'}, chrome: {type: 'string'},
+      'page-timeout-ms': {type: 'string'}, chrome: {type: 'string'}, browser: {type: 'string'},
+      firefox: {type: 'string'}, geckodriver: {type: 'string'},
       'readable-only': {type: 'boolean'}, headed: {type: 'boolean'},
     },
   });
   if (values.help) { process.stdout.write(HELP); return; }
   if (positionals[0] !== 'capture' || positionals.length !== 2) throw new Error(HELP);
   const result = await captureDocument(positionals[1], {
-    outputDir: values['output-dir'], chrome: values.chrome,
+    outputDir: values['output-dir'], chrome: values.chrome, browser: values.browser,
+    firefox: values.firefox, geckodriver: values.geckodriver,
     timeoutMs: values['timeout-ms'] === undefined ? undefined : Number(values['timeout-ms']),
     pageTimeoutMs: values['page-timeout-ms'] === undefined ? undefined : Number(values['page-timeout-ms']),
     reveal: !values['readable-only'], headless: !values.headed,

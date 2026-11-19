@@ -37,12 +37,14 @@ function createServer(capture = captureDocument) {
   });
   server.registerTool('studocu_capture', {
     title: 'Reveal and capture a Studocu preview',
-    description: 'Open a Studocu document in isolated Chrome, remove client-side CSS blur and sibling covers, '
+    description: 'Open a Studocu document in isolated Firefox (default) or Chrome, remove client-side CSS blur and sibling covers, '
       + 'and return extracted text, page coverage and saved capture/text/screenshot paths. '
       + 'Only browser-supplied preview content can be recovered. Captured means all observed preview frames, '
       + 'not proof of the full original document. Missing pages produce a partial or unavailable result.',
     inputSchema: {
       url: z.string().url().describe('HTTPS Studocu document URL'),
+      browser: z.enum(['firefox', 'chrome']).default('firefox'),
+      headless: z.boolean().default(true).describe('Set false for a visible isolated browser'),
       reveal: z.boolean().default(true).describe('Reveal client-side blurred content'),
       timeoutMs: z.number().int().min(1).max(600000).default(120000),
       pageTimeoutMs: z.number().int().min(1).max(60000).default(8000),

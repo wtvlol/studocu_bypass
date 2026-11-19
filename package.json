@@ -1,5 +1,6 @@
 {
   "private": true,
+  "engines": {"node": ">=22"},
   "description": "Capture and render loaded document previews",
   "scripts": {
     "test": "node --test tests/*.cjs",
@@ -9,6 +10,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "playwright-core": "~1.56.0",
+    "selenium-webdriver": "^4.51.0",
     "zod": "^4.6.7"
   }
 }

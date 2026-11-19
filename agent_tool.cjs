@@ -65,6 +65,8 @@ async function captureInPage(page, url, options = {}) {
 
 async function captureDocument(url, options = {}, launch = (opts) => chromium.launch(opts)) {
   url = validateUrl(url);
+  const browserName = options.browser ?? 'firefox';
+  if (!['firefox', 'chrome'].includes(browserName)) throw new CaptureError('INVALID_OPTIONS', 'browser must be firefox or chrome.');
   const timeoutMs = options.timeoutMs ?? 120000;
   for (const [key, value, max] of [
     ['timeoutMs', timeoutMs, 600000], ['pageTimeoutMs', options.pageTimeoutMs ?? 8000, 60000],
@@ -82,18 +84,27 @@ async function captureDocument(url, options = {}, launch = (opts) => chromium.la
   const directory = await fsp.mkdtemp(path.join(outputRoot, 'capture-'));
   const artifacts = {result: path.join(directory, 'result.json')};
   let browser;
+  let driver;
   let page;
   let timer;
   let result;
   try {
-    browser = await launch({
-      executablePath: findChrome(options.chrome), headless: options.headless !== false,
-      timeout: Math.min(timeoutMs, 30000),
-    });
-    const context = await browser.newContext({viewport: {width: 1440, height: 1000}, acceptDownloads: false});
-    page = await context.newPage();
+    let captureWork;
+    if (browserName === 'firefox') {
+      const {startFirefox, captureInFirefox} = require('./firefox_capture.cjs');
+      driver = await startFirefox({...options, timeoutMs});
+      captureWork = captureInFirefox(driver, url, {...options, timeoutMs});
+    } else {
+      browser = await launch({
+        executablePath: findChrome(options.chrome), headless: options.headless !== false,
+        timeout: Math.min(timeoutMs, 30000),
+      });
+      const context = await browser.newContext({viewport: {width: 1440, height: 1000}, acceptDownloads: false});
+      page = await context.newPage();
+      captureWork = captureInPage(page, url, {...options, timeoutMs});
+    }
     const capture = await Promise.race([
-      captureInPage(page, url, {...options, timeoutMs}),
+      captureWork,
       new Promise((_, reject) => {
         timer = setTimeout(() => reject(new CaptureError('TIMEOUT', `Capture exceeded ${timeoutMs} ms.`)), timeoutMs);
       }),
@@ -107,13 +118,13 @@ async function captureDocument(url, options = {}, launch = (opts) => chromium.la
     const maxTextChars = options.maxTextChars ?? 20000;
     result = {
       status: !capture.pages.length ? 'unavailable' : capture.skippedPages.length ? 'partial' : 'captured',
-      coverage: 'loaded_preview_frames', url, title: capture.title,
+      coverage: 'loaded_preview_frames', browser: browserName, url, title: capture.title,
       totalPages: capture.totalPages, capturedPages: capture.pages.length,
       skippedPages: capture.skippedPages, revealedPreview: capture.revealedPreview,
       text: text.slice(0, maxTextChars), textTruncated: text.length > maxTextChars, artifacts,
     };
   } catch (err) {
-    result = {status: 'unavailable', url, error: {code: err.code ?? 'CAPTURE_FAILED', message: err.message}, artifacts};
+    result = {status: 'unavailable', browser: browserName, url, error: {code: err.code ?? 'CAPTURE_FAILED', message: err.message}, artifacts};
   } finally {
     clearTimeout(timer);
     if (page && !page.isClosed()) {
@@ -122,6 +133,11 @@ async function captureDocument(url, options = {}, launch = (opts) => chromium.la
       try { await page.screenshot({path: screenshot, timeout: 5000}); artifacts.screenshot = screenshot; } catch {}
     }
     if (browser) await browser.close();
+    if (driver) {
+      const screenshot = path.join(directory, 'preview.png');
+      try { await fsp.writeFile(screenshot, await driver.takeScreenshot(), 'base64'); artifacts.screenshot = screenshot; } catch {}
+      await driver.quit();
+    }
   }
   await fsp.writeFile(artifacts.result, JSON.stringify(result, null, 2));
   return result;

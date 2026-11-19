@@ -44,13 +44,13 @@ async function fixtureCapture(html, options = {}, responseStatus = 200) {
     return browser;
   };
   const result = await captureDocument(URL + '?sid=private', {
-    outputDir: directory, timeoutMs: 10000, pageTimeoutMs: 100, ...options,
+    outputDir: directory, timeoutMs: 10000, pageTimeoutMs: 100, browser: 'chrome', ...options,
   }, launch);
   return {result, requests, cleanup: () => fsp.rm(directory, {recursive: true, force: true})};
 }
 
 const documentHtml = `<title>Fixture paper</title>
-  <link rel="stylesheet" href="https://doc-assets.studocu.com/html/paper.css">
+  <link rel="preload stylesheet" href="https://doc-assets.studocu.com/html/paper.css">
   <div id="page-container"><div class="pf w0 h0"><div class="pc"><div class="t">Known text</div></div></div>
   <div class="pf w0 h0"></div></div>`;
 
