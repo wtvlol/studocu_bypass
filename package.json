@@ -1,6 +1,14 @@
 {
   "private": true,
   "description": "Capture and render loaded document previews",
-  "scripts": {"test": "node --test tests/test_capture.cjs"},
-  "dependencies": {"playwright-core": "~1.56.0"}
+  "scripts": {
+    "test": "node --test tests/*.cjs",
+    "capture": "node studocu-agent.cjs capture",
+    "mcp": "node studocu-agent.cjs mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "playwright-core": "~1.56.0",
+    "zod": "^4.6.7"
+  }
 }

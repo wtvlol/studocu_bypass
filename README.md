@@ -40,6 +40,20 @@ npm install
 
 ## Usage
 
+### AI agents (MCP or CLI)
+
+```bash
+node studocu-agent.cjs capture 'https://www.studocu.com/sg/document/university/course/document/12345'
+```
+
+This returns JSON with text, page coverage and capture/screenshot paths. It
+removes `sid` from the document URL before navigation and from saved capture
+URLs. Missing pages and access blocks produce explicit partial/unavailable
+results. See [the agent tool guide](docs/agent-tool.md) for MCP configuration,
+the existing-tab capture tool, output schemas and live-test limitations.
+
+### Browser console
+
 1. Open the Studocu document preview in your browser.
 2. Open DevTools → Console, then paste in the contents of [`capture_preview.js`](capture_preview.js).
    It reveals the loaded preview, scrolls through every page, then downloads
@@ -142,13 +156,19 @@ page-size rules, font maps, highlight clearing, answer-region detection, and a
 full redaction run on a generated PDF. When Node and Chrome are present, they
 also do a real Chrome render with mixed page sizes.
 The browser tests exercise blur removal, lazy loading, missing-page reporting,
-readable-only mode and preservation of the exported content's layout.
+readable-only mode, virtualized pages and preservation of the exported content's
+layout. Agent tests also check artifacts, iframe viewers, `sid` removal and MCP
+communication over stdio.
 
 ## Layout
 
 | Path | |
 |---|---|
 | `capture_preview.js` | Browser console snippet that reveals and exports loaded preview pages |
+| `studocu-agent.cjs` | Agent CLI and stdio MCP entry point |
+| `agent_tool.cjs` | Isolated Chrome capture, URL cleanup and structured artifact output |
+| `mcp_server.cjs` | MCP tools for URL capture and scripts for an existing tab |
+| `docs/agent-tool.md` | Agent setup, result contract and live-test evidence |
 | `extract_preview.py` | Downloads the assets and rebuilds the pages as HTML, then PDF |
 | `render_preview.cjs` | Prints local HTML to PDF with headless Chrome (fails if any image is missing) |
 | `remove_solutions.py` | Detects and redacts answer regions, then verifies the result |

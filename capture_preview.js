@@ -8,10 +8,12 @@
  * unless you pass --allow-partial. Set REVEAL_PREVIEW to false for readable-only
  * capture without changing the page's presentation.
  */
-(async () => {
-  const REVEAL_PREVIEW = true;
-  const PAGE_TIMEOUT_MS = 8000;
+(function () {
+async function capturePreview(options = {}) {
+  const REVEAL_PREVIEW = options.reveal ?? true;
+  const PAGE_TIMEOUT_MS = options.pageTimeoutMs ?? 8000;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const log = options.quiet ? () => {} : console.log.bind(console);
 
   const frames = [...document.querySelectorAll('#page-container .pf')];
   if (!frames.length) throw new Error('No document preview pages (#page-container .pf) found.');
@@ -47,9 +49,10 @@
       if (Number(s.opacity) === 0) el.style.setProperty('opacity', '1', 'important');
     }
     if (!content) return;
-    // Suppress sibling covers without deleting any document content or layout.
+    // Suppress sibling covers, preserving any sibling document containers.
     for (const sibling of content.parentElement.children) {
-      if (sibling !== content && !['STYLE', 'LINK'].includes(sibling.tagName)) {
+      if (sibling !== content && !sibling.matches('.pc') && !sibling.querySelector('.pc')
+          && !['STYLE', 'LINK'].includes(sibling.tagName)) {
         sibling.style.setProperty('display', 'none', 'important');
       }
     }
@@ -74,14 +77,26 @@
     return null;
   };
 
-  // Scroll each page into view and give it time to load, as a reader would.
+  const pages = [];
+  const skippedPages = [];
+  // Save each page before scrolling on: virtualised viewers can unload it later.
   for (const [i, frame] of frames.entries()) {
     reveal(frame);
     frame.scrollIntoView({block: 'center'});
     const started = Date.now();
     while (!frame.querySelector('.pc') && Date.now() - started < PAGE_TIMEOUT_MS) await sleep(150);
     reveal(frame);
-    console.log(`Page ${i + 1}/${frames.length}: ${unreadableReason(frame) || 'ok'}`);
+    const reason = unreadableReason(frame);
+    log(`Page ${i + 1}/${frames.length}: ${reason || 'ok'}`);
+    if (reason) skippedPages.push({number: i + 1, reason});
+    else {
+      const content = frame.querySelector('.pc');
+      const lines = [...content.querySelectorAll('.t')].map((el) => el.textContent);
+      pages.push({
+        number: i + 1, className: frame.className, html: content.outerHTML,
+        text: lines.length ? lines.join('\n') : content.textContent,
+      });
+    }
   }
   window.scrollTo(0, 0);
 
@@ -90,19 +105,14 @@
     .filter((u) => u.includes('doc-assets.') && u.includes('/html/'));
   if (!stylesheets.length) throw new Error('Document stylesheet was not found.');
 
-  const pages = [];
-  const skippedPages = [];
-  frames.forEach((frame, i) => {
-    reveal(frame);
-    const reason = unreadableReason(frame);
-    if (reason) skippedPages.push({number: i + 1, reason});
-    else pages.push({number: i + 1, className: frame.className, html: frame.querySelector('.pc').outerHTML});
-  });
-
+  const pageUrl = new URL(location.href);
+  for (const key of [...pageUrl.searchParams.keys()]) {
+    if (key.toLowerCase() === 'sid') pageUrl.searchParams.delete(key);
+  }
   const data = {
     format: 2,
     title: document.title,
-    pageUrl: location.href,
+    pageUrl: pageUrl.href,
     capturedAt: new Date().toISOString(),
     totalPages: frames.length,
     revealedPreview: REVEAL_PREVIEW,
@@ -110,14 +120,23 @@
     skippedPages,
     pages,
   };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const link = Object.assign(document.createElement('a'), {href: url, download: 'preview-export.json'});
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  if (options.download !== false) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const link = Object.assign(document.createElement('a'), {href: url, download: 'preview-export.json'});
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
 
-  console.log(`Exported ${pages.length} of ${frames.length} pages.`);
-  if (skippedPages.length) {
+  log(`Exported ${pages.length} of ${frames.length} pages.`);
+  if (skippedPages.length && !options.quiet) {
     console.warn('Not exported (not readable):', skippedPages.map((p) => `${p.number} (${p.reason})`).join(', '));
   }
+  return data;
+}
+
+// One implementation for browser-console users, the CLI and the MCP server.
+// The function is self-contained so Playwright can serialize it into a frame.
+if (typeof module === 'object' && module.exports) module.exports = {capturePreview};
+else return capturePreview();
 })();

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {chromium} = require('playwright-core');
+const {capturePreview} = require('../capture_preview.js');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'capture_preview.js'), 'utf8');
 const css = `
@@ -27,9 +28,7 @@ async function capture(page, html, reveal = true) {
     URL.createObjectURL = (blob) => { window.capturedBlob = blob; return 'blob:preview'; };
     HTMLAnchorElement.prototype.click = function () {};
   });
-  // Shorten only the missing-page wait in the fixture, keeping production defaults.
-  await page.evaluate(source.replace('const PAGE_TIMEOUT_MS = 8000;', 'const PAGE_TIMEOUT_MS = 300;')
-    .replace('const REVEAL_PREVIEW = true;', `const REVEAL_PREVIEW = ${reveal};`));
+  await page.evaluate(capturePreview, {reveal, pageTimeoutMs: 300});
   return page.evaluate(async () => JSON.parse(await window.capturedBlob.text()));
 }
 
@@ -70,6 +69,32 @@ test('reveals loaded pages, covers and ancestors; export remains unblurred with 
       text: 'Question 1', filter: 'none', display: 'block',
       transform: 'matrix(0.8, 0, 0, 0.8, 0, 0)', left: '15px',
     });
+  } finally { await page.close(); }
+});
+
+test('standalone console snippet still downloads a capture', async () => {
+  const page = await browser.newPage();
+  try {
+    await capture(page, '<div id="page-container"><div class="pf"><div class="pc">Snippet</div></div></div>');
+    const data = await page.evaluate(source);
+    assert.equal(data.pages[0].text, 'Snippet');
+    assert.deepEqual(await page.evaluate(async () => JSON.parse(await window.capturedBlob.text())), data);
+  } finally { await page.close(); }
+});
+
+test('preserves pages that are unloaded when scrolling to later pages', async () => {
+  const page = await browser.newPage();
+  try {
+    const data = await capture(page, `<div id="page-container">
+      <div id="first" class="pf"><div class="pc"><div class="t">First line</div></div></div>
+      <div id="second" class="pf"><div class="pc">Second</div></div></div>
+      <script>
+        document.querySelector('#second').scrollIntoView = function () {
+          document.querySelector('#first').innerHTML = '';
+        };
+      </script>`);
+    assert.deepEqual(data.pages.map((p) => p.text), ['First line', 'Second']);
+    assert.deepEqual(data.skippedPages, []);
   } finally { await page.close(); }
 });
 
